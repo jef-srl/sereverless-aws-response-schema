@@ -98,12 +98,10 @@ class ResponseSchemaPlugin {
   }
 
   findMethodForHttp(resouresIterable, httpMethod, path, parent = 'RootResourceId') {
-    let keyMethod;
-    console.log(httpMethod, path, parent);
     // if this is the last iteration we look into it 
     if (path === '' || path === '/') {
       // finding a method relative to root resource id
-      [keyMethod] = resouresIterable
+      const [keyMethod] = resouresIterable
         .find(([, method]) =>
           method.Type === 'AWS::ApiGateway::Method' &&
           method.Properties.HttpMethod === httpMethod.toUpperCase() &&
