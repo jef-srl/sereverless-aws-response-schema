@@ -19,7 +19,8 @@ class ResponseSchemaPlugin {
             "^[0-9]{3}$": {
               type: 'object',
               properties: {
-                "application/json": { type: 'object' }
+                "application/json": { type: 'object' },
+                "application/xml": { type: 'object' }
               },
             }
           },
@@ -51,19 +52,17 @@ class ResponseSchemaPlugin {
           .forEach(httpEvent => {
 
             try {
-              //lookinf for ther ight key method
+              //looking for the right key method
               const keyMethod = this.findMethodForHttp(resouresIterable, httpEvent.method, httpEvent.path);
 
-              // Onche i have the right method, i inizialize MethodResponses
-              resources[keyMethod].Properties.MethodResponses = [];
+              // Onche i have the right method, i inizialize MethodResponses if needed
+              if (!resources[keyMethod].Properties.MethodResponses) {
+                resources[keyMethod].Properties.MethodResponses = [];
+              }
+
               // Iterating through responseSchemas responses codes to add those
               Object.entries(httpEvent.responseSchemas).forEach(([statusCode, schemas]) => {
-
-                const methodResponse = {
-                  StatusCode: statusCode,
-                  ResponseModels: {}
-                }
-
+                const responseModels = {};
                 // Iterating through all contentTypes
                 Object.entries(schemas).forEach(
                   ([contentType, schema]) => {
@@ -76,18 +75,28 @@ class ResponseSchemaPlugin {
                       Type: 'AWS::ApiGateway::Model',
                       Properties: {
                         RestApiId: { Ref: 'ApiGatewayRestApi' },
-                        ContentType: 'application/json',
+                        ContentType: contentType,
                         Schema: schema
                       }
                     }
                     // Adding the models ref to the ResponseModels
-                    methodResponse.ResponseModels[contentType] = {
+                    responseModels[contentType] = {
                       Ref: modelKey
                     };
                   }
                 );
+                const existingMethodResponse = resources[keyMethod].Properties.MethodResponses
+                  .find(one => one.StatusCode === statusCode)
+                if (existingMethodResponse) {
+                  existingMethodResponse.ResponseModels = responseModels
+                } else {
+                  resources[keyMethod].Properties.MethodResponses.push({
+                    StatusCode: statusCode,
+                    ResponseModels: {}
+                  });
+                }
                 // Adding the whole configuration for the statusCode
-                resources[keyMethod].Properties.MethodResponses.push(methodResponse);
+
               })
             } catch (e) {
               this.log('Could not find configurations for schemas');
